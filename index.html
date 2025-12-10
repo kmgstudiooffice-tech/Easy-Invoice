@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Easy Invoice - 保存機能付き</title>
+    <title>Easy Invoice - 税額手入力対応</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Google Fonts -->
@@ -52,7 +52,6 @@
             padding: 20mm;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             position: relative;
-            /* プレビュー未反映時はぼかすなどの演出用クラス */
             transition: opacity 0.3s;
         }
         
@@ -153,9 +152,8 @@
                 
                 <!-- ツールバー -->
                 <div class="flex justify-between items-center mb-6 sticky top-0 bg-white/95 backdrop-blur py-2 border-b z-20">
-                    <div class="flex bg-gray-100 rounded-lg p-1">
-                        <button onclick="setMode('simple')" id="btn-simple" class="px-3 py-1 rounded-md text-xs font-medium transition-colors bg-white shadow-sm">簡易</button>
-                        <button onclick="setMode('detail')" id="btn-detail" class="px-3 py-1 rounded-md text-xs font-medium transition-colors text-gray-500">詳細</button>
+                    <div class="text-sm font-bold text-gray-500">
+                        <i class="fa-solid fa-pen-to-square mr-1"></i> 編集モード
                     </div>
                     <button onclick="updatePreview()" class="bg-indigo-600 text-white px-4 py-1.5 rounded-md text-sm font-bold shadow hover:bg-indigo-700 transition flex items-center gap-2 animate-pulse-once">
                         <i class="fa-solid fa-rotate"></i> プレビュー反映
@@ -191,14 +189,14 @@
                             <div class="bg-blue-50 p-3 rounded-md border border-blue-100">
                                 <label class="block text-xs font-bold text-blue-800 mb-1">請求先</label>
                                 <input type="text" id="input-client" placeholder="相手先の会社名・氏名" class="w-full border-gray-300 border rounded-md p-2 mb-2 bg-white">
-                                <input type="text" id="input-client-dept" placeholder="部署・担当者名 (任意)" class="w-full border-gray-300 border rounded-md p-2 text-sm detail-only hidden bg-white">
+                                <input type="text" id="input-client-dept" placeholder="部署・担当者名 (任意)" class="w-full border-gray-300 border rounded-md p-2 text-sm bg-white">
                             </div>
 
                             <div class="bg-green-50 p-3 rounded-md border border-green-100">
                                 <label class="block text-xs font-bold text-green-800 mb-1">請求元 (自社)</label>
                                 <input type="text" id="input-my-company" placeholder="自社の名前" class="w-full border-gray-300 border rounded-md p-2 mb-2 bg-white">
                                 <input type="text" id="input-my-address" placeholder="住所" class="w-full border-gray-300 border rounded-md p-2 text-sm mb-2 bg-white">
-                                <div class="detail-only hidden">
+                                <div>
                                     <input type="text" id="input-my-tel" placeholder="電話番号" class="w-full border-gray-300 border rounded-md p-2 text-sm mb-2 bg-white">
                                     <input type="text" id="input-my-invoice-num" placeholder="登録番号 T1234..." class="w-full border-gray-300 border rounded-md p-2 text-sm bg-white">
                                 </div>
@@ -218,8 +216,8 @@
                         </div>
                     </section>
 
-                    <!-- 備考・振込先 (詳細モードのみ) -->
-                    <section class="detail-only hidden">
+                    <!-- 備考・振込先 -->
+                    <section>
                         <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">振込先・備考</h3>
                         <div class="space-y-3">
                             <div>
@@ -298,11 +296,12 @@
                     <table class="w-full mb-8 border-collapse">
                         <thead>
                             <tr class="bg-indigo-900 text-white">
-                                <th class="p-2 text-left w-1/2">内容</th>
-                                <th class="p-2 text-center w-16 detail-col">単価</th>
-                                <th class="p-2 text-center w-16 detail-col">数量</th>
-                                <th class="p-2 text-center w-12 detail-col">単位</th>
-                                <th class="p-2 text-right w-24">金額</th>
+                                <th class="p-2 text-left w-5/12">内容</th>
+                                <th class="p-2 text-center w-2/12">単価</th>
+                                <th class="p-2 text-center w-1/12">数量</th>
+                                <th class="p-2 text-center w-1/12">単位</th>
+                                <th class="p-2 text-center w-1/12">税(率)</th>
+                                <th class="p-2 text-right w-2/12">金額</th>
                             </tr>
                         </thead>
                         <tbody id="preview-items-body">
@@ -312,21 +311,19 @@
 
                     <!-- 計算エリア -->
                     <div class="flex justify-end mb-12">
-                        <div class="w-1/2 lg:w-1/3">
+                        <div class="w-1/2 lg:w-5/12">
                             <div class="flex justify-between border-b border-gray-300 py-1">
                                 <span>小計 (税抜)</span>
                                 <span id="preview-subtotal" class="font-mono">¥0</span>
                             </div>
-                            <div class="flex justify-between border-b border-gray-300 py-1 text-xs text-gray-500 detail-col">
-                                <span>(内 10%対象)</span>
-                                <span id="preview-taxable-10" class="font-mono">¥0</span>
+                            
+                            <!-- 動的税金エリア -->
+                            <div id="preview-tax-breakdown">
+                                <!-- JSで税率ごとに生成 -->
                             </div>
-                            <div class="flex justify-between border-b border-gray-300 py-1 text-xs text-gray-500 detail-col">
-                                <span>(内 8%対象)</span>
-                                <span id="preview-taxable-8" class="font-mono">¥0</span>
-                            </div>
+                            
                             <div class="flex justify-between border-b border-gray-300 py-1 text-sm">
-                                <span>消費税</span>
+                                <span>消費税合計</span>
                                 <span id="preview-tax-total" class="font-mono">¥0</span>
                             </div>
                             <div class="flex justify-between border-b-2 border-indigo-900 py-2 text-lg font-bold mt-2">
@@ -337,7 +334,7 @@
                     </div>
 
                     <!-- 備考・振込先 -->
-                    <div class="grid grid-cols-2 gap-8 detail-only hidden">
+                    <div class="grid grid-cols-2 gap-8">
                         <div>
                             <h4 class="font-bold border-b border-gray-400 mb-2 text-sm">お振込先</h4>
                             <div id="preview-bank" class="text-sm whitespace-pre-wrap leading-relaxed text-gray-600"></div>
@@ -371,13 +368,12 @@
 
     <script>
         // グローバル変数
-        let currentMode = 'simple';
         let items = [];
         let currentInvoiceId = null; // 編集中・新規作成中のID
         let invoiceList = []; // 保存済みデータリスト
 
         // ローカルストレージキー
-        const STORAGE_KEY = 'easy_invoice_data';
+        const STORAGE_KEY = 'easy_invoice_data_v4';
 
         // 初期化
         document.addEventListener('DOMContentLoaded', () => {
@@ -408,37 +404,31 @@
 
         // ==================== データ管理 (CRUD) ====================
         
-        // データをロード
         function loadInvoices() {
             const data = localStorage.getItem(STORAGE_KEY);
             invoiceList = data ? JSON.parse(data) : [];
             renderInvoiceList();
         }
 
-        // データを保存
         function saveToStorage() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(invoiceList));
         }
 
-        // 新規作成開始
         function createNewInvoice() {
-            currentInvoiceId = Date.now().toString(); // ユニークID生成
-            clearForm(); // フォームを空にする
+            currentInvoiceId = Date.now().toString();
+            clearForm();
             
-            // 1行だけ空の項目を追加
-            items = [{ id: Date.now(), name: "", price: 0, qty: 1, unit: "式", taxRate: 0.10 }];
+            // 1行だけ空の項目を追加（デフォルト税率10%）
+            // taxAmount: 税額の手入力値保持用
+            items = [{ id: Date.now(), name: "", price: 0, qty: 1, unit: "式", taxRate: 10, taxAmount: 0 }];
             
-            setMode('simple');
             renderItems();
-            
-            // プレビューをリセット（ぼかす）
             document.getElementById('invoice-preview').classList.add('blur-preview');
             document.getElementById('preview-overlay').classList.remove('hidden');
             
             showScreen('editor');
         }
 
-        // 編集開始
         function editInvoice(id) {
             const invoice = invoiceList.find(v => v.id === id);
             if (!invoice) return;
@@ -461,20 +451,26 @@
             document.getElementById('input-bank').value = invoice.bank || '';
             document.getElementById('input-notes').value = invoice.notes || '';
 
-            items = invoice.items || [];
-            currentMode = invoice.mode || 'simple';
+            // 旧データ互換性: taxAmountがない場合計算して付与
+            items = (invoice.items || []).map(item => {
+                let newItem = { ...item };
+                // v2からの移行データ対応: taxRateが0.1(小数)の場合、10(整数)に変換
+                if (newItem.taxRate < 1 && newItem.taxRate > 0) {
+                    newItem.taxRate = newItem.taxRate * 100;
+                }
+                // taxAmountがない場合
+                if (newItem.taxAmount === undefined) {
+                    newItem.taxAmount = Math.floor((newItem.price * newItem.qty) * (newItem.taxRate / 100));
+                }
+                return newItem;
+            });
 
-            setMode(currentMode);
             renderItems();
-            
-            // 編集開始時はプレビューを表示しておく
             updatePreview(); 
             showScreen('editor');
         }
 
-        // 現在の状態を保存
         function saveInvoice() {
-            // タイトルが空ならデフォルト設定
             let title = document.getElementById('input-title').value;
             if(!title.trim()) {
                 title = "名称未設定の請求書";
@@ -500,16 +496,14 @@
                 notes: document.getElementById('input-notes').value,
                 
                 items: items,
-                mode: currentMode,
-                total: calculateTotal() // リスト表示用に合計だけ計算
+                total: calculateTotal()
             };
 
-            // 既存データなら更新、新規なら追加
             const index = invoiceList.findIndex(v => v.id === currentInvoiceId);
             if (index >= 0) {
                 invoiceList[index] = data;
             } else {
-                invoiceList.unshift(data); // 先頭に追加
+                invoiceList.unshift(data);
             }
 
             saveToStorage();
@@ -517,7 +511,7 @@
         }
 
         function deleteInvoice(id, event) {
-            event.stopPropagation(); // 親要素のクリックイベント伝播を阻止
+            event.stopPropagation();
             if(!confirm('本当にこの請求書を削除しますか？')) return;
             
             invoiceList = invoiceList.filter(v => v.id !== id);
@@ -526,7 +520,6 @@
             showToast("削除しました");
         }
 
-        // リスト描画
         function renderInvoiceList() {
             const container = document.getElementById('invoice-list');
             document.getElementById('invoice-count').innerText = `${invoiceList.length}件`;
@@ -568,26 +561,6 @@
             inputs.forEach(input => input.value = '');
         }
 
-        function setMode(mode) {
-            currentMode = mode;
-            const btnSimple = document.getElementById('btn-simple');
-            const btnDetail = document.getElementById('btn-detail');
-            const detailElements = document.querySelectorAll('.detail-only');
-            const detailCols = document.querySelectorAll('.detail-col');
-
-            if (mode === 'simple') {
-                btnSimple.className = "px-3 py-1 rounded-md text-xs font-medium transition-colors bg-indigo-600 text-white shadow-sm";
-                btnDetail.className = "px-3 py-1 rounded-md text-xs font-medium transition-colors bg-gray-100 text-gray-500 hover:bg-gray-200";
-                detailElements.forEach(el => el.classList.add('hidden'));
-                // detailColsはプレビュー描画時に制御するためここではCSSクラスの付与のみ
-            } else {
-                btnSimple.className = "px-3 py-1 rounded-md text-xs font-medium transition-colors bg-gray-100 text-gray-500 hover:bg-gray-200";
-                btnDetail.className = "px-3 py-1 rounded-md text-xs font-medium transition-colors bg-indigo-600 text-white shadow-sm";
-                detailElements.forEach(el => el.classList.remove('hidden'));
-            }
-            renderItems();
-        }
-
         function renderItems() {
             const container = document.getElementById('items-container');
             container.innerHTML = '';
@@ -600,45 +573,46 @@
                     <button onclick="removeItem(${index})" class="absolute -right-2 -top-2 bg-red-400 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow hover:bg-red-500 z-10 transition-colors">
                         <i class="fa-solid fa-times"></i>
                     </button>
-                    <div class="grid ${currentMode === 'simple' ? 'grid-cols-3' : 'grid-cols-12'} gap-2 items-end">
-                        <div class="${currentMode === 'simple' ? 'col-span-2' : 'col-span-4'}">
+                    <!-- 12グリッドレイアウト -->
+                    <div class="grid grid-cols-12 gap-2 items-end">
+                        <div class="col-span-12 md:col-span-4">
                             <label class="text-xs text-gray-500 block">内容</label>
                             <input type="text" value="${item.name}" onchange="updateItem(${index}, 'name', this.value)" class="w-full border p-1.5 rounded text-sm bg-white focus:ring-1 focus:ring-indigo-500">
                         </div>
                         
-                        <div class="${currentMode === 'simple' ? 'hidden' : 'col-span-2 block'}">
+                        <div class="col-span-4 md:col-span-2">
                             <label class="text-xs text-gray-500 block">単価</label>
                             <input type="number" value="${item.price}" onchange="updateItem(${index}, 'price', this.value)" class="w-full border p-1.5 rounded text-sm text-right bg-white focus:ring-1 focus:ring-indigo-500">
                         </div>
 
-                        <div class="${currentMode === 'simple' ? 'hidden' : 'col-span-2 block'}">
+                        <div class="col-span-2 md:col-span-1">
                             <label class="text-xs text-gray-500 block">数量</label>
                             <input type="number" value="${item.qty}" onchange="updateItem(${index}, 'qty', this.value)" class="w-full border p-1.5 rounded text-sm text-right bg-white focus:ring-1 focus:ring-indigo-500">
                         </div>
 
-                        <div class="${currentMode === 'simple' ? 'hidden' : 'col-span-1 block'}">
+                        <div class="col-span-2 md:col-span-1">
                             <label class="text-xs text-gray-500 block">単位</label>
                             <input type="text" value="${item.unit}" onchange="updateItem(${index}, 'unit', this.value)" class="w-full border p-1.5 rounded text-sm text-center bg-white focus:ring-1 focus:ring-indigo-500">
                         </div>
 
-                        <div class="${currentMode === 'simple' ? 'col-span-1' : 'col-span-3'}">
-                            <label class="text-xs text-gray-500 block">金額</label>
-                            <input type="number" value="${currentMode === 'simple' ? item.price : (item.price * item.qty)}" 
-                                   onchange="${currentMode === 'simple' ? `updateItem(${index}, 'price', this.value)` : ''}" 
-                                   ${currentMode === 'detail' ? 'readonly' : ''}
-                                   class="w-full border p-1.5 rounded text-sm text-right ${currentMode === 'detail' ? 'bg-gray-200 text-gray-600' : 'bg-white font-bold'}">
+                        <div class="col-span-4 md:col-span-2">
+                            <label class="text-xs text-gray-500 block">税率/税額</label>
+                            <div class="flex flex-col gap-1">
+                                <div class="relative">
+                                    <input type="number" value="${item.taxRate}" onchange="updateItem(${index}, 'taxRate', this.value)" class="w-full border p-1 rounded text-xs text-right bg-white focus:ring-1 focus:ring-indigo-500 pr-5" placeholder="率">
+                                    <span class="absolute right-1 top-1 text-[10px] text-gray-400">%</span>
+                                </div>
+                                <div class="relative">
+                                    <input type="number" value="${item.taxAmount}" onchange="updateItem(${index}, 'taxAmount', this.value)" class="w-full border p-1 rounded text-xs text-right bg-white text-indigo-700 font-medium focus:ring-1 focus:ring-indigo-500 pr-5" placeholder="額">
+                                    <span class="absolute right-1 top-1 text-[10px] text-gray-400">円</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="${currentMode === 'simple' ? 'hidden' : 'mt-2 flex items-center gap-4 text-xs'}">
-                         <label class="flex items-center gap-1 cursor-pointer">
-                            <input type="radio" name="tax-${index}" ${item.taxRate === 0.1 ? 'checked' : ''} onchange="updateItem(${index}, 'taxRate', 0.1)">
-                            10%
-                        </label>
-                        <label class="flex items-center gap-1 cursor-pointer">
-                            <input type="radio" name="tax-${index}" ${item.taxRate === 0.08 ? 'checked' : ''} onchange="updateItem(${index}, 'taxRate', 0.08)">
-                            8%(軽減)
-                        </label>
+
+                        <div class="col-span-12 md:col-span-2">
+                            <label class="text-xs text-gray-500 block">金額(税込)</label>
+                            <input type="text" value="¥${((item.price * item.qty) + item.taxAmount).toLocaleString()}" readonly class="w-full border p-1.5 rounded text-sm text-right bg-gray-100 text-gray-500">
+                        </div>
                     </div>
                 `;
                 container.appendChild(div);
@@ -646,24 +620,30 @@
         }
 
         function updateItem(index, field, value) {
-            if (field === 'price' || field === 'qty') {
-                items[index][field] = parseFloat(value) || 0;
-            } else if (field === 'taxRate') {
-                items[index][field] = parseFloat(value);
+            let val = parseFloat(value);
+            if (isNaN(val) && field !== 'name' && field !== 'unit') val = 0;
+            
+            // 値のセット
+            if (field !== 'name' && field !== 'unit') {
+                items[index][field] = val;
             } else {
                 items[index][field] = value;
             }
-            // 配列の値だけ更新し、DOMは再描画しない（フォーカス外れ防止）
-            // ただし計算項目の表示更新が必要な場合があるため、簡易的に詳細モードの合計欄だけ更新するロジックを入れてもいいが、
-            // 「プレビュー反映」ボタンがあるので、ここではデータ更新のみとする。
-            
-            // 簡易モードの金額変更時のみ、詳細モード用の計算整合性のため再描画を検討するが、
-            // onchangeイベントなのでフォーカスは既に外れている。なのでrenderItemsを呼んでも安全。
+
+            // 自動計算ロジック
+            // 税額(taxAmount)以外が変わった場合 -> 税額を再計算
+            if (field === 'price' || field === 'qty' || field === 'taxRate') {
+                const subtotal = items[index].price * items[index].qty;
+                items[index].taxAmount = Math.floor(subtotal * (items[index].taxRate / 100));
+            }
+            // taxAmountが直接変更された場合は、その値をそのまま採用する（何もしない）
+
             renderItems();
         }
 
         function addItem() {
-            items.push({ id: Date.now(), name: "", price: 0, qty: 1, unit: "式", taxRate: 0.10 });
+            // 初期状態: 税率10%, 税額0
+            items.push({ id: Date.now(), name: "", price: 0, qty: 1, unit: "式", taxRate: 10, taxAmount: 0 });
             renderItems();
         }
 
@@ -675,99 +655,93 @@
         // ==================== プレビュー & 計算 ====================
 
         function calculateTotal() {
-            let subtotal = 0;
-            let taxable10 = 0;
-            let taxable8 = 0;
-
+            let total = 0;
             items.forEach(item => {
-                const rowTotal = item.price * item.qty;
-                subtotal += rowTotal;
-                if (item.taxRate === 0.10) taxable10 += rowTotal;
-                if (item.taxRate === 0.08) taxable8 += rowTotal;
+                const subtotal = item.price * item.qty;
+                total += subtotal + item.taxAmount;
             });
-
-            const tax10 = Math.floor(taxable10 * 0.10);
-            const tax8 = Math.floor(taxable8 * 0.08);
-            return subtotal + tax10 + tax8;
+            return total;
         }
 
-        // プレビューのレンダリング（ボタン押下時に発火）
         function updatePreview() {
-            // ぼかし解除
             document.getElementById('invoice-preview').classList.remove('blur-preview');
             document.getElementById('preview-overlay').classList.add('hidden');
 
-            // テキスト反映
             setText('preview-title', document.getElementById('input-title').value);
             setText('preview-number', document.getElementById('input-number').value);
             setText('preview-date', formatDate(document.getElementById('input-date').value));
-            
             setText('preview-client', document.getElementById('input-client').value);
             setText('preview-client-dept', document.getElementById('input-client-dept').value);
-            
             setText('preview-my-company', document.getElementById('input-my-company').value);
             setText('preview-my-address', document.getElementById('input-my-address').value);
             setText('preview-my-tel', document.getElementById('input-my-tel').value);
             setText('preview-my-invoice-num', document.getElementById('input-my-invoice-num').value);
-
             setText('preview-bank', document.getElementById('input-bank').value);
             setText('preview-notes', document.getElementById('input-notes').value);
 
-            // テーブル行生成
             const tbody = document.getElementById('preview-items-body');
             tbody.innerHTML = '';
             
             let subtotal = 0;
-            let taxable10 = 0;
-            let taxable8 = 0;
+            // 税率ごとの集計オブジェクト { rate: { taxable: 対象額, tax: 税額 } }
+            let taxBreakdown = {};
 
             items.forEach(item => {
-                const rowTotal = item.price * item.qty;
-                subtotal += rowTotal;
+                const rowPrice = item.price * item.qty;
+                subtotal += rowPrice;
                 
-                if (item.taxRate === 0.10) taxable10 += rowTotal;
-                if (item.taxRate === 0.08) taxable8 += rowTotal;
+                // 税集計 (明細ごとの積み上げ)
+                const rateKey = item.taxRate;
+                if (!taxBreakdown[rateKey]) {
+                    taxBreakdown[rateKey] = { taxable: 0, tax: 0 };
+                }
+                taxBreakdown[rateKey].taxable += rowPrice;
+                taxBreakdown[rateKey].tax += item.taxAmount; // 手入力された税額をそのまま加算
 
                 const tr = document.createElement('tr');
                 tr.className = "border-b border-gray-200";
-                
-                const showDetail = currentMode === 'detail';
-                const taxMark = (showDetail && item.taxRate === 0.08) ? '<span class="text-xs bg-gray-200 px-1 rounded ml-1">※</span>' : '';
-
                 tr.innerHTML = `
-                    <td class="p-2 text-left">${item.name} ${taxMark}</td>
-                    <td class="p-2 text-center detail-col ${!showDetail ? 'hidden' : ''}">¥${item.price.toLocaleString()}</td>
-                    <td class="p-2 text-center detail-col ${!showDetail ? 'hidden' : ''}">${item.qty}</td>
-                    <td class="p-2 text-center detail-col ${!showDetail ? 'hidden' : ''}">${item.unit}</td>
-                    <td class="p-2 text-right font-mono">¥${rowTotal.toLocaleString()}</td>
+                    <td class="p-2 text-left">${item.name}</td>
+                    <td class="p-2 text-center">¥${item.price.toLocaleString()}</td>
+                    <td class="p-2 text-center">${item.qty}</td>
+                    <td class="p-2 text-center">${item.unit}</td>
+                    <td class="p-2 text-center text-xs text-gray-500">
+                        ${item.taxRate}%<br>
+                        <span class="text-[10px] text-gray-400">(¥${item.taxAmount})</span>
+                    </td>
+                    <td class="p-2 text-right font-mono">¥${rowPrice.toLocaleString()}</td>
                 `;
                 tbody.appendChild(tr);
             });
 
-            // 税計算
-            const tax10 = Math.floor(taxable10 * 0.10);
-            const tax8 = Math.floor(taxable8 * 0.08);
-            const taxTotal = tax10 + tax8;
-            const grandTotal = subtotal + taxTotal;
+            // 税計算・表示
+            let totalTax = 0;
+            const breakdownContainer = document.getElementById('preview-tax-breakdown');
+            breakdownContainer.innerHTML = '';
 
-            // 金額反映
+            // 税率キーをソート（大きい順）して表示
+            Object.keys(taxBreakdown).sort((a, b) => b - a).forEach(rate => {
+                if (parseFloat(rate) === 0 && taxBreakdown[rate].tax === 0) return; 
+
+                const data = taxBreakdown[rate];
+                totalTax += data.tax;
+
+                const div = document.createElement('div');
+                div.className = "flex justify-between border-b border-gray-300 py-1 text-xs text-gray-500";
+                div.innerHTML = `
+                    <span>(内 ${rate}%対象 ¥${data.taxable.toLocaleString()}) 消費税</span>
+                    <span class="font-mono">¥${data.tax.toLocaleString()}</span>
+                `;
+                breakdownContainer.appendChild(div);
+            });
+
+            const grandTotal = subtotal + totalTax;
+
             setText('preview-subtotal', `¥${subtotal.toLocaleString()}`);
-            setText('preview-taxable-10', `¥${taxable10.toLocaleString()}`);
-            setText('preview-taxable-8', `¥${taxable8.toLocaleString()}`);
-            setText('preview-tax-total', `¥${taxTotal.toLocaleString()}`);
+            setText('preview-tax-total', `¥${totalTax.toLocaleString()}`);
             setText('preview-grand-total', `¥${grandTotal.toLocaleString()}`);
             setText('preview-total-highlight', `¥${grandTotal.toLocaleString()}-`);
-
-            // モードによるCSS制御
-            const detailCols = document.querySelectorAll('.detail-col');
-            if(currentMode === 'simple') {
-                detailCols.forEach(el => el.classList.add('hidden'));
-            } else {
-                detailCols.forEach(el => el.classList.remove('hidden'));
-            }
         }
-
-        // ==================== ユーティリティ ====================
 
         function setText(id, value) {
             const el = document.getElementById(id);
