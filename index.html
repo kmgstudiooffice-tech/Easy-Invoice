@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Easy Invoice - 税額手入力対応</title>
+    <title>Easy Invoice - 自動請求書メーカー</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Google Fonts -->
@@ -136,26 +136,25 @@
 
             <div id="invoice-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <!-- JSでリスト生成 -->
-                <div class="col-span-full text-center py-20 text-gray-400">
-                    <i class="fa-regular fa-folder-open text-5xl mb-4"></i>
-                    <p>保存された請求書はありません</p>
-                    <button onclick="createNewInvoice()" class="mt-4 text-indigo-600 font-bold hover:underline">新規作成する</button>
-                </div>
             </div>
         </div>
 
         <!-- ==================== 編集・プレビュー画面 ==================== -->
-        <div id="screen-editor" class="hidden h-full flex flex-col md:flex-row h-full">
+        <!-- 初期状態はJSでクラス制御して中央配置にします -->
+        <div id="screen-editor" class="hidden h-full flex flex-col md:flex-row h-full transition-all duration-500">
             
             <!-- 左側：入力フォーム -->
-            <div class="w-full md:w-5/12 lg:w-4/12 bg-white border-r border-gray-200 overflow-y-auto p-4 sm:p-6 no-print pb-24 shadow-inner custom-scrollbar z-10">
+            <!-- 初期状態: w-full max-w-3xl mx-auto rounded-xl shadow-2xl h-auto max-h-[90%] -->
+            <!-- プレビュー時: w-full md:w-5/12 lg:w-4/12 bg-white border-r h-full -->
+            <div id="editor-area" class="w-full md:w-5/12 lg:w-4/12 bg-white border-r border-gray-200 overflow-y-auto p-4 sm:p-6 no-print pb-24 shadow-inner custom-scrollbar z-10 transition-all duration-500 ease-in-out">
                 
                 <!-- ツールバー -->
                 <div class="flex justify-between items-center mb-6 sticky top-0 bg-white/95 backdrop-blur py-2 border-b z-20">
                     <div class="text-sm font-bold text-gray-500">
                         <i class="fa-solid fa-pen-to-square mr-1"></i> 編集モード
                     </div>
-                    <button onclick="updatePreview()" class="bg-indigo-600 text-white px-4 py-1.5 rounded-md text-sm font-bold shadow hover:bg-indigo-700 transition flex items-center gap-2 animate-pulse-once">
+                    <!-- プレビュー反映ボタン -->
+                    <button onclick="updatePreview(true)" class="bg-indigo-600 text-white px-4 py-1.5 rounded-md text-sm font-bold shadow hover:bg-indigo-700 transition flex items-center gap-2 animate-pulse-once">
                         <i class="fa-solid fa-rotate"></i> プレビュー反映
                     </button>
                 </div>
@@ -241,7 +240,7 @@
             </div>
 
             <!-- 右側：プレビューエリア -->
-            <div class="flex-1 bg-gray-500 overflow-auto p-4 md:p-8 flex justify-center items-start print-area-wrapper relative">
+            <div id="preview-area" class="flex-1 bg-gray-500 overflow-auto p-4 md:p-8 flex justify-center items-start print-area-wrapper relative hidden">
                 
                 <!-- プレビュー更新ボタン (Floating) -->
                 <div class="absolute top-4 right-4 z-20 flex gap-2 no-print">
@@ -251,7 +250,7 @@
                 </div>
 
                 <!-- A4用紙 -->
-                <div id="invoice-preview" class="invoice-sheet print-area text-black text-sm blur-preview transition-all duration-500">
+                <div id="invoice-preview" class="invoice-sheet print-area text-black text-sm transition-all duration-500">
                     
                     <!-- ヘッダーエリア -->
                     <div class="flex justify-between items-end border-b-2 border-indigo-900 pb-4 mb-8">
@@ -345,16 +344,6 @@
                         </div>
                     </div>
 
-                    <!-- プレビュー未反映メッセージ -->
-                    <div id="preview-overlay" class="absolute inset-0 flex items-center justify-center bg-white/30 backdrop-blur-[1px] rounded transition-opacity duration-300">
-                        <div class="bg-indigo-600 text-white px-6 py-4 rounded-lg shadow-xl text-center">
-                            <i class="fa-solid fa-arrow-left text-2xl mb-2 md:hidden"></i>
-                            <i class="fa-solid fa-arrow-left text-2xl mb-2 hidden md:inline-block"></i>
-                            <p class="font-bold">プレビューを反映</p>
-                            <p class="text-xs mt-1">左側の「プレビュー反映」ボタンを<br>押してください</p>
-                        </div>
-                    </div>
-
                 </div>
             </div>
         </div>
@@ -371,9 +360,10 @@
         let items = [];
         let currentInvoiceId = null; // 編集中・新規作成中のID
         let invoiceList = []; // 保存済みデータリスト
+        let isPreviewVisible = false; // プレビュー表示フラグ
 
         // ローカルストレージキー
-        const STORAGE_KEY = 'easy_invoice_data_v4';
+        const STORAGE_KEY = 'easy_invoice_data_v5';
 
         // 初期化
         document.addEventListener('DOMContentLoaded', () => {
@@ -402,6 +392,33 @@
             }
         }
 
+        // ==================== レイアウト制御 (集中モード) ====================
+        function togglePreviewLayout(show) {
+            const screenEditor = document.getElementById('screen-editor');
+            const editorArea = document.getElementById('editor-area');
+            const previewArea = document.getElementById('preview-area');
+
+            isPreviewVisible = show;
+
+            if (!show) {
+                // プレビュー非表示（集中モード）: 入力エリアを中央配置
+                screenEditor.classList.remove('md:flex-row', 'items-start');
+                screenEditor.classList.add('items-center', 'justify-center', 'p-4');
+                
+                editorArea.className = "w-full max-w-3xl bg-white shadow-2xl rounded-xl border border-gray-200 overflow-y-auto p-6 no-print pb-24 custom-scrollbar z-10 h-auto max-h-[90vh]";
+                
+                previewArea.classList.add('hidden');
+            } else {
+                // プレビュー表示（分割モード）
+                screenEditor.classList.remove('items-center', 'justify-center', 'p-4');
+                screenEditor.classList.add('md:flex-row', 'items-start');
+
+                editorArea.className = "w-full md:w-5/12 lg:w-4/12 bg-white border-r border-gray-200 overflow-y-auto p-4 sm:p-6 no-print pb-24 shadow-inner custom-scrollbar z-10 h-full";
+                
+                previewArea.classList.remove('hidden');
+            }
+        }
+
         // ==================== データ管理 (CRUD) ====================
         
         function loadInvoices() {
@@ -419,12 +436,12 @@
             clearForm();
             
             // 1行だけ空の項目を追加（デフォルト税率10%）
-            // taxAmount: 税額の手入力値保持用
             items = [{ id: Date.now(), name: "", price: 0, qty: 1, unit: "式", taxRate: 10, taxAmount: 0 }];
             
             renderItems();
-            document.getElementById('invoice-preview').classList.add('blur-preview');
-            document.getElementById('preview-overlay').classList.remove('hidden');
+            
+            // 初期状態はプレビューを隠して中央配置
+            togglePreviewLayout(false);
             
             showScreen('editor');
         }
@@ -451,14 +468,12 @@
             document.getElementById('input-bank').value = invoice.bank || '';
             document.getElementById('input-notes').value = invoice.notes || '';
 
-            // 旧データ互換性: taxAmountがない場合計算して付与
+            // 旧データ互換性 & 税額計算
             items = (invoice.items || []).map(item => {
                 let newItem = { ...item };
-                // v2からの移行データ対応: taxRateが0.1(小数)の場合、10(整数)に変換
                 if (newItem.taxRate < 1 && newItem.taxRate > 0) {
                     newItem.taxRate = newItem.taxRate * 100;
                 }
-                // taxAmountがない場合
                 if (newItem.taxAmount === undefined) {
                     newItem.taxAmount = Math.floor((newItem.price * newItem.qty) * (newItem.taxRate / 100));
                 }
@@ -466,7 +481,10 @@
             });
 
             renderItems();
-            updatePreview(); 
+
+            // 編集モード開始時も、まずは集中モード（プレビューなし）で開始
+            togglePreviewLayout(false);
+            
             showScreen('editor');
         }
 
@@ -623,7 +641,6 @@
             let val = parseFloat(value);
             if (isNaN(val) && field !== 'name' && field !== 'unit') val = 0;
             
-            // 値のセット
             if (field !== 'name' && field !== 'unit') {
                 items[index][field] = val;
             } else {
@@ -631,18 +648,15 @@
             }
 
             // 自動計算ロジック
-            // 税額(taxAmount)以外が変わった場合 -> 税額を再計算
             if (field === 'price' || field === 'qty' || field === 'taxRate') {
                 const subtotal = items[index].price * items[index].qty;
                 items[index].taxAmount = Math.floor(subtotal * (items[index].taxRate / 100));
             }
-            // taxAmountが直接変更された場合は、その値をそのまま採用する（何もしない）
 
             renderItems();
         }
 
         function addItem() {
-            // 初期状態: 税率10%, 税額0
             items.push({ id: Date.now(), name: "", price: 0, qty: 1, unit: "式", taxRate: 10, taxAmount: 0 });
             renderItems();
         }
@@ -663,9 +677,11 @@
             return total;
         }
 
-        function updatePreview() {
-            document.getElementById('invoice-preview').classList.remove('blur-preview');
-            document.getElementById('preview-overlay').classList.add('hidden');
+        function updatePreview(showLayout = false) {
+            // レイアウト変更が必要な場合（ボタンクリック時など）
+            if (showLayout && !isPreviewVisible) {
+                togglePreviewLayout(true);
+            }
 
             setText('preview-title', document.getElementById('input-title').value);
             setText('preview-number', document.getElementById('input-number').value);
@@ -683,20 +699,18 @@
             tbody.innerHTML = '';
             
             let subtotal = 0;
-            // 税率ごとの集計オブジェクト { rate: { taxable: 対象額, tax: 税額 } }
             let taxBreakdown = {};
 
             items.forEach(item => {
                 const rowPrice = item.price * item.qty;
                 subtotal += rowPrice;
                 
-                // 税集計 (明細ごとの積み上げ)
                 const rateKey = item.taxRate;
                 if (!taxBreakdown[rateKey]) {
                     taxBreakdown[rateKey] = { taxable: 0, tax: 0 };
                 }
                 taxBreakdown[rateKey].taxable += rowPrice;
-                taxBreakdown[rateKey].tax += item.taxAmount; // 手入力された税額をそのまま加算
+                taxBreakdown[rateKey].tax += item.taxAmount;
 
                 const tr = document.createElement('tr');
                 tr.className = "border-b border-gray-200";
@@ -719,7 +733,6 @@
             const breakdownContainer = document.getElementById('preview-tax-breakdown');
             breakdownContainer.innerHTML = '';
 
-            // 税率キーをソート（大きい順）して表示
             Object.keys(taxBreakdown).sort((a, b) => b - a).forEach(rate => {
                 if (parseFloat(rate) === 0 && taxBreakdown[rate].tax === 0) return; 
 
