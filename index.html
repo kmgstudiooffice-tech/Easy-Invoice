@@ -6,6 +6,11 @@
     <title>Easy Invoice - 無料自動請求書作成メーカー</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- PDF生成用ライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
     <!-- Google Fonts -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
@@ -13,9 +18,8 @@
         body {
             font-family: 'Noto Sans JP', sans-serif;
             background-color: #f3f4f6;
-            /* モバイルブラウザの高さ問題に対応 */
             height: 100dvh;
-            overscroll-behavior-y: none; /* バウンススクロール防止 */
+            overscroll-behavior-y: none;
         }
 
         /* 印刷時のスタイル */
@@ -26,9 +30,7 @@
                 height: auto;
                 overflow: visible;
             }
-            .no-print {
-                display: none !important;
-            }
+            .no-print { display: none !important; }
             .print-area {
                 display: block !important;
                 width: 100%;
@@ -36,7 +38,7 @@
                 padding: 0;
                 box-shadow: none;
                 border: none;
-                transform: none !important; /* 印刷時は拡大縮小解除 */
+                transform: none !important;
             }
             @page { margin: 0; size: A4; }
             .invoice-sheet {
@@ -48,11 +50,7 @@
                 border: none !important;
                 box-shadow: none !important;
             }
-            /* 印刷時はラッパーの影響を無視 */
-            #preview-scaler {
-                width: auto !important;
-                height: auto !important;
-            }
+            #preview-scaler { width: auto !important; height: auto !important; }
         }
 
         .invoice-sheet {
@@ -62,15 +60,11 @@
             padding: 20mm;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             position: relative;
-            transform-origin: top left; /* 縮小の基準点 */
+            transform-origin: top left;
         }
         
-        /* スマホでの慣性スクロール用 */
-        .scroll-touch {
-            -webkit-overflow-scrolling: touch;
-        }
+        .scroll-touch { -webkit-overflow-scrolling: touch; }
 
-        /* ハンコ風スタイル */
         .stamp-box {
             width: 60px;
             height: 60px;
@@ -90,24 +84,48 @@
             pointer-events: none;
         }
 
-        /* スクロールバーカスタマイズ */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c7c7c7; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+        /* ローディングオーバーレイ */
+        #loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f1f1; 
+        #loading-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #c7c7c7; 
-            border-radius: 3px;
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8; 
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="text-gray-700 flex flex-col overflow-hidden">
+
+    <!-- ローディング画面 -->
+    <div id="loading-overlay">
+        <div class="spinner mb-4"></div>
+        <p class="text-indigo-900 font-bold animate-pulse">PDFを作成中...</p>
+    </div>
 
     <!-- 共通ヘッダー -->
     <header class="bg-indigo-600 text-white p-3 md:p-4 shadow-md z-10 no-print flex justify-between items-center shrink-0">
@@ -116,13 +134,11 @@
             <h1 class="text-lg md:text-xl font-bold">Easy Invoice</h1>
         </div>
         <div id="header-actions-home" class="flex gap-2">
-            <!-- ホーム画面用のアクション -->
             <button onclick="createNewInvoice()" class="bg-white text-indigo-600 px-3 py-1.5 md:px-4 md:py-2 rounded-lg font-bold hover:bg-indigo-50 transition shadow-sm flex items-center gap-2 text-sm md:text-base">
                 <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">新規作成</span><span class="sm:hidden">新規</span>
             </button>
         </div>
         <div id="header-actions-editor" class="hidden flex items-center gap-2 sm:gap-4">
-            <!-- 編集画面用のアクション -->
             <button onclick="saveInvoice()" class="text-indigo-100 hover:text-white font-medium flex items-center gap-1 text-sm md:text-base">
                 <i class="fa-regular fa-floppy-disk"></i> <span class="hidden sm:inline">保存</span>
             </button>
@@ -154,13 +170,11 @@
             <!-- 左側：入力フォーム -->
             <div id="editor-area" class="w-full md:w-5/12 lg:w-4/12 bg-white border-r border-gray-200 overflow-y-auto p-4 sm:p-6 no-print pb-32 md:pb-24 shadow-inner custom-scrollbar z-20 transition-all duration-300 ease-in-out scroll-touch">
                 
-                <!-- ツールバー -->
                 <div class="flex justify-between items-center mb-6 sticky top-0 bg-white/95 backdrop-blur py-2 border-b z-20">
                     <div class="text-xs md:text-sm font-bold text-gray-500 flex items-center gap-2">
                         <span class="bg-gray-100 px-2 py-1 rounded"><i class="fa-solid fa-pen-to-square mr-1"></i>編集</span>
                         <span id="save-status" class="text-xs font-normal text-green-600 hidden scale-0 transition-transform duration-300"><i class="fa-solid fa-check"></i> 保存済</span>
                     </div>
-                    <!-- プレビュー反映ボタン -->
                     <button onclick="updatePreview(true)" class="bg-indigo-600 text-white px-3 py-1.5 md:px-4 rounded-md text-xs md:text-sm font-bold shadow hover:bg-indigo-700 transition flex items-center gap-2">
                         <i class="fa-solid fa-rotate"></i> プレビュー
                     </button>
@@ -217,9 +231,7 @@
                             <button onclick="addItem()" class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200 font-bold"><i class="fa-solid fa-plus"></i> 行追加</button>
                         </div>
                         
-                        <div id="items-container" class="space-y-3">
-                            <!-- JSで項目が追加されます -->
-                        </div>
+                        <div id="items-container" class="space-y-3"></div>
                     </section>
 
                     <!-- 備考・振込先 -->
@@ -247,7 +259,6 @@
             </div>
 
             <!-- 右側：プレビューエリア -->
-            <!-- 修正: justify-centerで常に中央寄せ。モバイルではJSで縮小してフィットさせる -->
             <div id="preview-area" class="flex-1 bg-gray-500 overflow-auto scroll-touch p-4 md:p-8 flex justify-center items-start print-area-wrapper relative hidden h-full">
                 
                 <!-- 戻るボタン (モバイル用) -->
@@ -255,16 +266,19 @@
                     <i class="fa-solid fa-arrow-left"></i>
                 </button>
 
-                <!-- 印刷ボタン (Floating) -->
+                <!-- 印刷・PDFボタン (Floating) -->
                 <div class="absolute top-4 right-4 z-30 flex gap-2 no-print sticky-btn">
-                     <button onclick="window.print()" class="bg-white text-gray-700 px-3 py-2 md:px-4 rounded-lg font-bold shadow hover:bg-gray-50 transition flex items-center gap-2 text-sm md:text-base">
-                        <i class="fa-solid fa-print"></i> <span class="hidden xs:inline">印刷/PDF</span>
+                    <button onclick="window.print()" class="bg-gray-100 text-gray-600 px-3 py-2 rounded-lg font-bold shadow hover:bg-gray-200 transition flex items-center justify-center w-10 h-10" title="ブラウザで印刷">
+                        <i class="fa-solid fa-print"></i>
+                    </button>
+                    <button onclick="generatePDF()" class="bg-red-600 text-white px-3 py-2 md:px-4 rounded-lg font-bold shadow hover:bg-red-700 transition flex items-center gap-2 text-sm md:text-base">
+                        <i class="fa-regular fa-file-pdf"></i> <span class="hidden xs:inline">PDF保存</span>
                     </button>
                 </div>
 
                 <!-- スケーリング用ラッパー -->
                 <div id="preview-scaler" class="relative transition-transform duration-200 origin-top-left shrink-0">
-                    <!-- A4用紙 -->
+                    <!-- A4用紙 (IDは変更なしだが、PDF生成時はこれのクローンを使用) -->
                     <div id="invoice-preview" class="invoice-sheet print-area text-black text-sm">
                         
                         <!-- ヘッダーエリア -->
@@ -318,9 +332,7 @@
                                     <th class="p-2 text-right w-2/12">金額</th>
                                 </tr>
                             </thead>
-                            <tbody id="preview-items-body">
-                                <!-- JSで生成 -->
-                            </tbody>
+                            <tbody id="preview-items-body"></tbody>
                         </table>
 
                         <!-- 計算エリア -->
@@ -330,10 +342,7 @@
                                     <span>小計 (税抜)</span>
                                     <span id="preview-subtotal" class="font-mono">¥0</span>
                                 </div>
-                                
-                                <!-- 動的税金エリア -->
                                 <div id="preview-tax-breakdown"></div>
-                                
                                 <div class="flex justify-between border-b border-gray-300 py-1 text-sm">
                                     <span>消費税合計</span>
                                     <span id="preview-tax-total" class="font-mono">¥0</span>
@@ -370,27 +379,101 @@
     </div>
 
     <script>
-        // グローバル変数
         let items = [];
         let currentInvoiceId = null;
         let invoiceList = [];
         let isPreviewVisible = false;
         let autoSaveTimer = null;
-
         const STORAGE_KEY = 'easy_invoice_data_v5';
 
-        // 初期化
         document.addEventListener('DOMContentLoaded', () => {
             loadInvoices();
             showScreen('home');
-            
-            // リサイズ時にプレビューサイズを再計算
             window.addEventListener('resize', () => {
                 if (isPreviewVisible) adjustPreviewScale();
             });
+            // 念のためフォントロード待ち
+            document.fonts.ready.then(() => {
+                console.log('Fonts loaded');
+            });
         });
 
-        // ==================== プレビュー自動縮小ロジック (New!) ====================
+        // ==================== PDF生成機能 (大幅修正: クローン方式) ====================
+        async function generatePDF() {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.classList.add('active');
+
+            // 処理が重くなる可能性があるので少し待つ
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            try {
+                const originalElement = document.getElementById('invoice-preview');
+                
+                // 1. クローンを作成 (画面のスケーリング影響を受けないように)
+                const clone = originalElement.cloneNode(true);
+                
+                // 2. クローン用のコンテナを作成し、画面外(ただし描画可能領域)に配置
+                // html2canvasは display:none の要素を描画できないため、固定位置で画面外に出す
+                const container = document.createElement('div');
+                container.style.position = 'fixed';
+                container.style.top = '0'; // 画面内だが
+                container.style.left = '0'; // 最前面に配置して
+                container.style.zIndex = '-9999'; // 見えないようにする
+                container.style.width = '210mm'; // A4幅を強制
+                container.style.height = 'auto'; 
+                container.style.overflow = 'visible';
+                
+                // 3. クローンにはスケーリング(transform)を適用しない
+                clone.style.transform = 'none';
+                clone.style.margin = '0';
+                
+                container.appendChild(clone);
+                document.body.appendChild(container);
+
+                // 4. html2canvasでキャプチャ
+                const canvas = await html2canvas(clone, {
+                    scale: 2, // 高画質化 (192dpi相当)
+                    useCORS: true, // 外部リソース対応
+                    logging: false,
+                    width: clone.offsetWidth, // 幅を明示
+                    height: clone.offsetHeight, // 高さを明示
+                    windowWidth: clone.offsetWidth, // ウィンドウ幅も合わせる
+                    onclone: (clonedDoc) => {
+                        // 必要ならここでクローン内のDOM操作が可能
+                        // 例: Tailwindのクラス適用待ちなどが疑われる場合はここで待機など
+                    }
+                });
+
+                // 5. PDF生成
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgData = canvas.toDataURL('image/png');
+                
+                // 画像のアスペクト比を維持してPDFにフィットさせる
+                const imgProps = pdf.getImageProperties(imgData);
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                
+                // 6. お掃除
+                document.body.removeChild(container);
+
+                // 7. 保存
+                const filename = `請求書_${document.getElementById('input-number').value || 'INV'}.pdf`;
+                pdf.save(filename);
+
+                showToast("PDFをダウンロードしました");
+
+            } catch (error) {
+                console.error("PDF generation failed:", error);
+                alert("PDFの生成に失敗しました。\nエラー: " + error.message);
+            } finally {
+                overlay.classList.remove('active');
+            }
+        }
+
+        // ==================== プレビュー自動縮小ロジック ====================
         function adjustPreviewScale() {
             const previewArea = document.getElementById('preview-area');
             const invoice = document.getElementById('invoice-preview');
@@ -398,25 +481,15 @@
             
             if (!previewArea || !invoice || !scaler) return;
 
-            // コンテナの幅（パディング除く）
-            const containerWidth = previewArea.clientWidth - 32; // p-4 = 16px * 2
-            
-            // A4の固定幅 (210mm @ 96dpi approx 794px)
-            const invoiceWidth = 794; // invoice.offsetWidthでも取れるが固定値が安全
+            const containerWidth = previewArea.clientWidth - 32; 
+            const invoiceWidth = 794; // A4 px
 
-            // スマホなどでコンテナがA4より狭い場合のみ縮小
             if (containerWidth < invoiceWidth) {
                 const scale = containerWidth / invoiceWidth;
-                
-                // 拡大縮小を適用
                 invoice.style.transform = `scale(${scale})`;
-                
-                // ラッパーのサイズを調整して余白を詰める
-                // scaleすると要素の占有領域は変わらないため、ラッパーで強制的にサイズを指定する
                 scaler.style.width = `${invoiceWidth * scale}px`;
                 scaler.style.height = `${invoice.offsetHeight * scale}px`;
             } else {
-                // デスクトップなどで十分な幅がある場合
                 invoice.style.transform = 'none';
                 scaler.style.width = 'auto';
                 scaler.style.height = 'auto';
@@ -452,7 +525,7 @@
             }
         }
 
-        // ==================== レイアウト制御 (集中モード) ====================
+        // ==================== レイアウト制御 ====================
         function togglePreviewLayout(show) {
             const screenEditor = document.getElementById('screen-editor');
             const editorArea = document.getElementById('editor-area');
@@ -461,37 +534,27 @@
             isPreviewVisible = show;
 
             if (!show) {
-                // 集中モード（入力のみ）
                 screenEditor.classList.remove('md:flex-row', 'items-start');
                 screenEditor.classList.add('items-center', 'justify-center');
-                
-                // モバイルでは全画面、PCでは中央ポップアップ風
                 editorArea.className = "w-full md:max-w-3xl bg-white md:shadow-2xl md:rounded-xl md:border md:border-gray-200 overflow-y-auto p-4 md:p-6 no-print pb-24 custom-scrollbar z-20 h-full md:h-[90vh]";
-                
                 previewArea.classList.add('hidden');
             } else {
-                // プレビュー表示モード
                 screenEditor.classList.remove('items-center', 'justify-center');
                 screenEditor.classList.add('md:flex-row', 'items-start');
-
-                // モバイルでは左側(入力)を隠して右側(プレビュー)を表示
-                // PCでは左右分割
+                
                 if (window.innerWidth < 768) {
-                    editorArea.classList.add('hidden'); // モバイルでは入力を隠す
+                    editorArea.classList.add('hidden');
                 } else {
                     editorArea.classList.remove('hidden');
                 }
 
                 editorArea.className = "w-full md:w-5/12 lg:w-4/12 bg-white border-r border-gray-200 overflow-y-auto p-4 sm:p-6 no-print pb-24 shadow-inner custom-scrollbar z-20 h-full";
-                
                 previewArea.classList.remove('hidden');
-                
-                // 表示後にサイズ計算
                 setTimeout(adjustPreviewScale, 0);
             }
         }
 
-        // ==================== データ管理 (CRUD) ====================
+        // ==================== データ管理 ====================
         function loadInvoices() {
             const data = localStorage.getItem(STORAGE_KEY);
             invoiceList = data ? JSON.parse(data) : [];
@@ -517,7 +580,6 @@
 
             currentInvoiceId = invoice.id;
             
-            // 値セット
             document.getElementById('input-title').value = invoice.title || '';
             document.getElementById('input-number').value = invoice.number || '';
             document.getElementById('input-date').value = invoice.date || '';
@@ -530,7 +592,6 @@
             document.getElementById('input-bank').value = invoice.bank || '';
             document.getElementById('input-notes').value = invoice.notes || '';
 
-            // データ互換性
             items = (invoice.items || []).map(item => {
                 let newItem = { ...item };
                 if (newItem.taxRate < 1 && newItem.taxRate > 0) newItem.taxRate *= 100;
@@ -569,11 +630,8 @@
             };
 
             const index = invoiceList.findIndex(v => v.id === currentInvoiceId);
-            if (index >= 0) {
-                invoiceList[index] = data;
-            } else {
-                invoiceList.unshift(data);
-            }
+            if (index >= 0) invoiceList[index] = data;
+            else invoiceList.unshift(data);
 
             saveToStorage();
             
@@ -583,11 +641,7 @@
                 setTimeout(() => statusEl.classList.add('scale-0'), 2000);
             }
 
-            if(isAutoSave) {
-                // 自動保存はトースト出さない（邪魔になるためステータスのみ）
-            } else {
-                showToast("保存しました");
-            }
+            if(!isAutoSave) showToast("保存しました");
         }
 
         function deleteInvoice(id, event) {
@@ -785,7 +839,6 @@
             setText('preview-grand-total', `¥${grandTotal.toLocaleString()}`);
             setText('preview-total-highlight', `¥${grandTotal.toLocaleString()}-`);
 
-            // プレビュー表示中はサイズを再計算
             if(isPreviewVisible) adjustPreviewScale();
         }
 
