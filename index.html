@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Easy Invoice - 集中モード搭載</title>
+    <title>Easy Invoice - 無料自動請求書メーカー</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Google Fonts -->
@@ -155,8 +155,9 @@
                 
                 <!-- ツールバー -->
                 <div class="flex justify-between items-center mb-6 sticky top-0 bg-white/95 backdrop-blur py-2 border-b z-20">
-                    <div class="text-sm font-bold text-gray-500">
+                    <div class="text-sm font-bold text-gray-500 flex items-center gap-2">
                         <i class="fa-solid fa-pen-to-square mr-1"></i> 編集モード
+                        <span id="save-status" class="text-xs font-normal text-green-600 hidden"><i class="fa-solid fa-check"></i> 保存済み</span>
                     </div>
                     <!-- プレビュー反映ボタン -->
                     <button onclick="updatePreview(true)" class="bg-indigo-600 text-white px-4 py-1.5 rounded-md text-sm font-bold shadow hover:bg-indigo-700 transition flex items-center gap-2 animate-pulse-once">
@@ -171,16 +172,16 @@
                         <div class="grid grid-cols-1 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">件名 <span class="text-red-500">*</span></label>
-                                <input type="text" id="input-title" placeholder="例: 10月分ご請求" class="w-full border-gray-300 border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <input type="text" id="input-title" oninput="triggerAutoSave()" placeholder="例: 10月分ご請求" class="w-full border-gray-300 border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">請求日</label>
-                                    <input type="date" id="input-date" class="w-full border-gray-300 border rounded-md p-2 focus:ring-2 focus:ring-indigo-500">
+                                    <input type="date" id="input-date" oninput="triggerAutoSave()" class="w-full border-gray-300 border rounded-md p-2 focus:ring-2 focus:ring-indigo-500">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">請求書番号</label>
-                                    <input type="text" id="input-number" placeholder="INV-001" class="w-full border-gray-300 border rounded-md p-2 focus:ring-2 focus:ring-indigo-500">
+                                    <input type="text" id="input-number" oninput="triggerAutoSave()" placeholder="INV-001" class="w-full border-gray-300 border rounded-md p-2 focus:ring-2 focus:ring-indigo-500">
                                 </div>
                             </div>
                         </div>
@@ -192,17 +193,17 @@
                         <div class="space-y-4">
                             <div class="bg-blue-50 p-3 rounded-md border border-blue-100">
                                 <label class="block text-xs font-bold text-blue-800 mb-1">請求先</label>
-                                <input type="text" id="input-client" placeholder="相手先の会社名・氏名" class="w-full border-gray-300 border rounded-md p-2 mb-2 bg-white">
-                                <input type="text" id="input-client-dept" placeholder="部署・担当者名 (任意)" class="w-full border-gray-300 border rounded-md p-2 text-sm bg-white">
+                                <input type="text" id="input-client" oninput="triggerAutoSave()" placeholder="相手先の会社名・氏名" class="w-full border-gray-300 border rounded-md p-2 mb-2 bg-white">
+                                <input type="text" id="input-client-dept" oninput="triggerAutoSave()" placeholder="部署・担当者名 (任意)" class="w-full border-gray-300 border rounded-md p-2 text-sm bg-white">
                             </div>
 
                             <div class="bg-green-50 p-3 rounded-md border border-green-100">
                                 <label class="block text-xs font-bold text-green-800 mb-1">請求元 (自社)</label>
-                                <input type="text" id="input-my-company" placeholder="自社の名前" class="w-full border-gray-300 border rounded-md p-2 mb-2 bg-white">
-                                <input type="text" id="input-my-address" placeholder="住所" class="w-full border-gray-300 border rounded-md p-2 text-sm mb-2 bg-white">
+                                <input type="text" id="input-my-company" oninput="triggerAutoSave()" placeholder="自社の名前" class="w-full border-gray-300 border rounded-md p-2 mb-2 bg-white">
+                                <input type="text" id="input-my-address" oninput="triggerAutoSave()" placeholder="住所" class="w-full border-gray-300 border rounded-md p-2 text-sm mb-2 bg-white">
                                 <div>
-                                    <input type="text" id="input-my-tel" placeholder="電話番号" class="w-full border-gray-300 border rounded-md p-2 text-sm mb-2 bg-white">
-                                    <input type="text" id="input-my-invoice-num" placeholder="登録番号 T1234..." class="w-full border-gray-300 border rounded-md p-2 text-sm bg-white">
+                                    <input type="text" id="input-my-tel" oninput="triggerAutoSave()" placeholder="電話番号" class="w-full border-gray-300 border rounded-md p-2 text-sm mb-2 bg-white">
+                                    <input type="text" id="input-my-invoice-num" oninput="triggerAutoSave()" placeholder="登録番号 T1234..." class="w-full border-gray-300 border rounded-md p-2 text-sm bg-white">
                                 </div>
                             </div>
                         </div>
@@ -226,11 +227,11 @@
                         <div class="space-y-3">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">振込先銀行</label>
-                                <textarea id="input-bank" rows="3" class="w-full border-gray-300 border rounded-md p-2 text-sm"></textarea>
+                                <textarea id="input-bank" oninput="triggerAutoSave()" rows="3" class="w-full border-gray-300 border rounded-md p-2 text-sm"></textarea>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">備考</label>
-                                <textarea id="input-notes" rows="2" class="w-full border-gray-300 border rounded-md p-2 text-sm"></textarea>
+                                <textarea id="input-notes" oninput="triggerAutoSave()" rows="2" class="w-full border-gray-300 border rounded-md p-2 text-sm"></textarea>
                             </div>
                         </div>
                     </section>
@@ -367,6 +368,7 @@
         let currentInvoiceId = null; // 編集中・新規作成中のID
         let invoiceList = []; // 保存済みデータリスト
         let isPreviewVisible = false; // プレビュー表示フラグ
+        let autoSaveTimer = null; // 自動保存用タイマー
 
         // ローカルストレージキー
         const STORAGE_KEY = 'easy_invoice_data_v5';
@@ -376,6 +378,18 @@
             loadInvoices();
             showScreen('home');
         });
+
+        // ==================== 自動保存機能 ====================
+        
+        // 自動保存トリガー (デバウンス処理)
+        function triggerAutoSave() {
+            if (autoSaveTimer) clearTimeout(autoSaveTimer);
+            
+            // 入力が止まってから1秒後に保存実行
+            autoSaveTimer = setTimeout(() => {
+                saveInvoice(true); // true = 自動保存（サイレントモード）
+            }, 1000);
+        }
 
         // ==================== 画面遷移 ====================
         function showScreen(screenId) {
@@ -494,11 +508,15 @@
             showScreen('editor');
         }
 
-        function saveInvoice() {
+        function saveInvoice(isAutoSave = false) {
             let title = document.getElementById('input-title').value;
             if(!title.trim()) {
                 title = "名称未設定の請求書";
-                document.getElementById('input-title').value = title;
+                // inputの値を書き換えるとUXが悪くなる場合があるため、内部データのみ補完する方針も可だが、
+                // ここではわかりやすさ優先でinputも更新しておく（ただし自動保存時はフォーカス中の可能性があるので注意）
+                if(!isAutoSave) {
+                     document.getElementById('input-title').value = title;
+                }
             }
 
             const data = {
@@ -531,7 +549,19 @@
             }
 
             saveToStorage();
-            showToast("保存しました");
+            
+            // ステータス表示の更新
+            const statusEl = document.getElementById('save-status');
+            if(statusEl) {
+                statusEl.classList.remove('hidden');
+                setTimeout(() => statusEl.classList.add('hidden'), 2000);
+            }
+
+            if(isAutoSave) {
+                showToast("自動保存しました");
+            } else {
+                showToast("保存しました");
+            }
         }
 
         function deleteInvoice(id, event) {
@@ -660,16 +690,19 @@
             }
 
             renderItems();
+            triggerAutoSave(); // 明細変更時にも自動保存をトリガー
         }
 
         function addItem() {
             items.push({ id: Date.now(), name: "", price: 0, qty: 1, unit: "式", taxRate: 10, taxAmount: 0 });
             renderItems();
+            triggerAutoSave();
         }
 
         function removeItem(index) {
             items.splice(index, 1);
             renderItems();
+            triggerAutoSave();
         }
 
         // ==================== プレビュー & 計算 ====================
