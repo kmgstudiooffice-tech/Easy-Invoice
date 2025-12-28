@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Easy Invoice - 自動反映機能付き</title>
+    <title>Easy Invoice - 支払期限対応版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
@@ -231,6 +231,11 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-1">請求書番号</label>
                                     <input type="text" id="input-number" oninput="triggerAutoSave()" placeholder="INV-001" class="w-full border-gray-300 border rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500">
                                 </div>
+                                <!-- 支払期限 (New!) -->
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">お支払い期限 <span class="text-xs font-normal text-gray-400">(自由記入)</span></label>
+                                    <input type="text" id="input-deadline" oninput="triggerAutoSave()" placeholder="例: 2023年10月末日、受領後1週間以内など" class="w-full border-gray-300 border rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500">
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -348,6 +353,9 @@
                                 <div id="preview-number" class="font-mono text-lg font-bold"></div>
                                 <div class="text-gray-500 text-xs mt-1">請求日</div>
                                 <div id="preview-date"></div>
+                                <!-- 支払期限表示 (New!) -->
+                                <div class="text-gray-500 text-xs mt-1">お支払い期限</div>
+                                <div id="preview-deadline" class="font-medium"></div>
                             </div>
                         </div>
 
@@ -753,6 +761,7 @@
             document.getElementById('input-title').value = invoice.title || '';
             document.getElementById('input-number').value = invoice.number || '';
             document.getElementById('input-date').value = invoice.date || '';
+            document.getElementById('input-deadline').value = invoice.deadline || ''; // Load deadline
             document.getElementById('input-client').value = invoice.client || '';
             document.getElementById('input-client-dept').value = invoice.clientDept || '';
             document.getElementById('input-my-company').value = invoice.myCompany || '';
@@ -810,6 +819,7 @@
                 title: title,
                 number: document.getElementById('input-number').value,
                 date: document.getElementById('input-date').value,
+                deadline: document.getElementById('input-deadline').value, // Save deadline
                 client: clientName,
                 clientDept: document.getElementById('input-client-dept').value,
                 myCompany: document.getElementById('input-my-company').value,
@@ -977,6 +987,21 @@
             setText('preview-title', document.getElementById('input-title').value);
             setText('preview-number', document.getElementById('input-number').value);
             setText('preview-date', formatDate(document.getElementById('input-date').value));
+            
+            // Set Deadline
+            const deadline = document.getElementById('input-deadline').value;
+            const previewDeadline = document.getElementById('preview-deadline');
+            const previewDeadlineContainer = previewDeadline.previousElementSibling; // The label "お支払い期限"
+            
+            if (deadline) {
+                previewDeadline.innerText = deadline;
+                previewDeadline.classList.remove('hidden');
+                if(previewDeadlineContainer) previewDeadlineContainer.classList.remove('hidden');
+            } else {
+                previewDeadline.classList.add('hidden');
+                if(previewDeadlineContainer) previewDeadlineContainer.classList.add('hidden');
+            }
+
             setText('preview-client', document.getElementById('input-client').value);
             setText('preview-client-dept', document.getElementById('input-client-dept').value);
             setText('preview-my-company', document.getElementById('input-my-company').value);
