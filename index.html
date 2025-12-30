@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Easy Invoice - 支払期限対応版</title>
+    <title>Easy Invoice - 自動無料請求書作成ツール</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
@@ -11,14 +11,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-    <!-- Google Fonts -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
         
         body {
             font-family: 'Noto Sans JP', sans-serif;
             background-color: #f3f4f6;
-            height: 100dvh;
+            height: 100dvh; /* モバイルブラウザのアドレスバー対策 */
             overscroll-behavior-y: none;
         }
 
@@ -75,7 +74,7 @@
             justify-content: center;
             color: #ef4444;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 16px;
             transform: rotate(-15deg);
             opacity: 0.8;
             position: absolute;
@@ -93,9 +92,9 @@
         #loading-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(4px);
-            z-index: 100;
+            z-index: 9999;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -231,7 +230,7 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-1">請求書番号</label>
                                     <input type="text" id="input-number" oninput="triggerAutoSave()" placeholder="INV-001" class="w-full border-gray-300 border rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500">
                                 </div>
-                                <!-- 支払期限 (New!) -->
+                                <!-- 支払期限 -->
                                 <div class="col-span-2">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">お支払い期限 <span class="text-xs font-normal text-gray-400">(自由記入)</span></label>
                                     <input type="text" id="input-deadline" oninput="triggerAutoSave()" placeholder="例: 2023年10月末日、受領後1週間以内など" class="w-full border-gray-300 border rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500">
@@ -323,26 +322,23 @@
             </div>
 
             <!-- 右側：プレビューエリア -->
-            <div id="preview-area" class="flex-1 bg-gray-500 overflow-auto scroll-touch p-4 md:p-8 flex justify-center items-start print-area-wrapper relative hidden h-full">
+            <div id="preview-area" class="flex-1 bg-gray-500 overflow-auto scroll-touch p-2 md:p-8 flex justify-center items-start print-area-wrapper relative hidden h-full">
                 
                 <!-- 戻るボタン (モバイル用) -->
                 <button onclick="togglePreviewLayout(false)" class="md:hidden absolute top-4 left-4 z-30 bg-gray-800/80 text-white w-10 h-10 rounded-full shadow flex items-center justify-center backdrop-blur">
                     <i class="fa-solid fa-arrow-left"></i>
                 </button>
 
-                <!-- 印刷・PDFボタン (Floating) -->
+                <!-- PDFボタン (Floating) - 印刷ボタン削除 -->
                 <div class="absolute top-4 right-4 z-30 flex gap-2 no-print sticky-btn">
-                    <button onclick="window.print()" class="bg-gray-100 text-gray-600 px-3 py-2 rounded-lg font-bold shadow hover:bg-gray-200 transition flex items-center justify-center w-10 h-10" title="ブラウザで印刷">
-                        <i class="fa-solid fa-print"></i>
-                    </button>
                     <button onclick="generatePDF()" class="bg-red-600 text-white px-3 py-2 md:px-4 rounded-lg font-bold shadow hover:bg-red-700 transition flex items-center gap-2 text-sm md:text-base">
-                        <i class="fa-regular fa-file-pdf"></i> <span class="hidden xs:inline">PDF保存</span>
+                        <i class="fa-regular fa-file-pdf"></i> <span class="hidden xs:inline">PDF保存</span><span class="xs:hidden">PDF</span>
                     </button>
                 </div>
 
                 <!-- スケーリング用ラッパー -->
                 <div id="preview-scaler" class="relative transition-transform duration-200 origin-top-left shrink-0">
-                    <!-- A4用紙 (IDは変更なしだが、PDF生成時はこれのクローンを使用) -->
+                    <!-- A4用紙 -->
                     <div id="invoice-preview" class="invoice-sheet print-area text-black text-sm">
                         
                         <!-- ヘッダーエリア -->
@@ -353,7 +349,7 @@
                                 <div id="preview-number" class="font-mono text-lg font-bold"></div>
                                 <div class="text-gray-500 text-xs mt-1">請求日</div>
                                 <div id="preview-date"></div>
-                                <!-- 支払期限表示 (New!) -->
+                                <!-- 支払期限表示 -->
                                 <div class="text-gray-500 text-xs mt-1">お支払い期限</div>
                                 <div id="preview-deadline" class="font-medium"></div>
                             </div>
@@ -369,7 +365,8 @@
                                 <div class="mt-8">
                                     <div class="text-sm inline-block">
                                         <span class="font-bold">ご請求金額</span>
-                                        <span id="preview-total-highlight" class="block text-3xl font-bold border-b-2 border-black mt-1">¥0-</span>
+                                        <!-- pb-1 を追加してアンダーバーと文字の重なりを解消 -->
+                                        <span id="preview-total-highlight" class="block text-3xl font-bold border-b-2 border-black mt-1 pb-1">¥0-</span>
                                     </div>
                                 </div>
                             </div>
@@ -382,7 +379,7 @@
                                 
                                 <!-- ハンコ -->
                                 <div class="stamp-box">
-                                    検印
+                                    印
                                 </div>
                             </div>
                         </div>
@@ -395,7 +392,7 @@
                                     <th class="p-2 text-center w-2/12">単価</th>
                                     <th class="p-2 text-center w-1/12">数量</th>
                                     <th class="p-2 text-center w-1/12">単位</th>
-                                    <th class="p-2 text-center w-1/12">税(率)</th>
+                                    <th class="p-2 text-center w-1/12">税率</th>
                                     <th class="p-2 text-right w-2/12">金額</th>
                                 </tr>
                             </thead>
@@ -451,7 +448,7 @@
         let invoiceList = [];
         let isPreviewVisible = false;
         let autoSaveTimer = null;
-        let showInvoiceNum = false; // インボイス番号の表示状態
+        let showInvoiceNum = false;
         const STORAGE_KEY = 'easy_invoice_data_v5';
         const HISTORY_KEY_CLIENT = 'easy_invoice_client_history';
         const HISTORY_KEY_COMPANY = 'easy_invoice_my_company_history';
@@ -473,22 +470,16 @@
         function saveHistory(key, newItem, uniqueKey = 'name') {
             if (!newItem[uniqueKey]) return;
             let history = getHistory(key);
-            // 重複排除
             history = history.filter(c => c[uniqueKey] !== newItem[uniqueKey]);
-            
             history.unshift(newItem);
-            // 最大20件
             if (history.length > 20) history = history.slice(0, 20);
-            
             localStorage.setItem(key, JSON.stringify(history));
         }
 
-        // ==================== 宛先履歴 ====================
         function saveClientHistory(name, dept) {
             saveHistory(HISTORY_KEY_CLIENT, { name, dept, lastUsed: new Date().toISOString() });
         }
 
-        // ==================== 自社履歴 ====================
         function saveMyCompanyHistory(data) {
             saveHistory(HISTORY_KEY_COMPANY, { ...data, lastUsed: new Date().toISOString() });
         }
@@ -519,7 +510,6 @@
                     title.innerHTML = '<i class="fa-solid fa-building mr-2"></i>自社情報履歴';
                     history = getHistory(HISTORY_KEY_COMPANY);
                     renderItem = (item, index) => {
-                        const dataStr = JSON.stringify(item).replace(/"/g, '&quot;');
                         return `
                         <div onclick="applyCompany(${index})" class="p-3 border-b hover:bg-green-50 cursor-pointer flex justify-between items-center group transition">
                             <div>
@@ -584,7 +574,7 @@
             updatePreview();
         }
 
-        // ==================== PDF生成機能 (クローン方式・高解像度版) ====================
+        // ==================== PDF生成機能 (精密版: 白紙対策済) ====================
         async function generatePDF() {
             const overlay = document.getElementById('loading-overlay');
             overlay.classList.add('active');
@@ -597,23 +587,29 @@
                 const container = document.createElement('div');
                 Object.assign(container.style, {
                     position: 'fixed', top: '0', left: '0', zIndex: '-9999',
-                    width: '210mm', height: 'auto', overflow: 'visible'
+                    width: '210mm', height: 'auto', minHeight: '297mm',
+                    overflow: 'hidden', backgroundColor: '#ffffff' 
                 });
                 
                 clone.style.transform = 'none';
                 clone.style.margin = '0';
+                clone.style.boxShadow = 'none'; 
+                
                 container.appendChild(clone);
                 document.body.appendChild(container);
 
-                const scale = 3;
+                const scale = 3; 
 
-                const canvas = await html2canvas(clone, {
+                const canvas = await html2canvas(container, {
                     scale: scale,
                     useCORS: true,
                     logging: false,
-                    width: clone.offsetWidth,
-                    height: clone.offsetHeight,
-                    windowWidth: clone.offsetWidth,
+                    backgroundColor: '#ffffff',
+                    width: container.offsetWidth,
+                    height: container.offsetHeight,
+                    windowWidth: container.offsetWidth,
+                    scrollX: 0,
+                    scrollY: 0,
                     onclone: (doc) => {}
                 });
 
@@ -647,7 +643,10 @@
             const scaler = document.getElementById('preview-scaler');
             if (!previewArea || !invoice || !scaler) return;
 
-            const containerWidth = previewArea.clientWidth - 32; 
+            // コンテナ幅が取得できない場合（非表示中など）は処理しない
+            if (previewArea.clientWidth === 0) return;
+
+            const containerWidth = previewArea.clientWidth - 32; // 余白を引く
             const invoiceWidth = 794; // A4 px
 
             if (containerWidth < invoiceWidth) {
@@ -688,28 +687,51 @@
             }
         }
 
-        // ==================== レイアウト制御 ====================
+        // ==================== レイアウト制御 (完全修正版) ====================
         function togglePreviewLayout(show) {
             const screenEditor = document.getElementById('screen-editor');
             const editorArea = document.getElementById('editor-area');
             const previewArea = document.getElementById('preview-area');
+            const isMobile = window.innerWidth < 768; // Tailwind md breakpoint
+
             isPreviewVisible = show;
 
             if (!show) {
+                // ■ 編集モード
+                
                 screenEditor.classList.remove('md:flex-row', 'items-start');
                 screenEditor.classList.add('items-center', 'justify-center');
-                editorArea.className = "w-full md:max-w-3xl bg-white md:shadow-2xl md:rounded-xl md:border md:border-gray-200 overflow-y-auto p-4 md:p-6 no-print pb-24 custom-scrollbar z-20 h-full md:h-[90vh]";
+
+                // エディタを必ず表示
+                editorArea.classList.remove('hidden');
+                
+                // 集中モードスタイル
+                editorArea.className = "w-full md:max-w-3xl bg-white md:shadow-2xl md:rounded-xl md:border md:border-gray-200 overflow-y-auto p-4 md:p-6 no-print pb-32 md:pb-24 custom-scrollbar z-20 h-full md:h-[90vh]";
+
+                // プレビューを必ず隠す
                 previewArea.classList.add('hidden');
+                
             } else {
+                // ■ プレビューモード
+                
                 screenEditor.classList.remove('items-center', 'justify-center');
                 screenEditor.classList.add('md:flex-row', 'items-start');
-                
-                if (window.innerWidth < 768) editorArea.classList.add('hidden');
-                else editorArea.classList.remove('hidden');
 
-                editorArea.className = "w-full md:w-5/12 lg:w-4/12 bg-white border-r border-gray-200 overflow-y-auto p-4 sm:p-6 no-print pb-24 shadow-inner custom-scrollbar z-20 h-full";
-                previewArea.classList.remove('hidden');
-                setTimeout(adjustPreviewScale, 0);
+                if (isMobile) {
+                    // モバイル: エディタを隠してプレビューのみ表示 (排他制御)
+                    editorArea.classList.add('hidden');
+                    previewArea.classList.remove('hidden');
+                } else {
+                    // PC: 両方表示
+                    editorArea.classList.remove('hidden');
+                    previewArea.classList.remove('hidden');
+                    
+                    // 2カラムスタイル
+                    editorArea.className = "w-full md:w-5/12 lg:w-4/12 bg-white border-r border-gray-200 overflow-y-auto p-4 sm:p-6 no-print pb-24 shadow-inner custom-scrollbar z-20 h-full";
+                }
+
+                // 表示後にサイズ計算（少し遅延させて確実に行う）
+                setTimeout(adjustPreviewScale, 300);
             }
         }
 
@@ -731,7 +753,6 @@
             
             document.getElementById('toggle-invoice-num').checked = false;
             
-            // ★自社情報の自動反映
             const companyHistory = getHistory(HISTORY_KEY_COMPANY);
             if (companyHistory.length > 0) {
                 const latest = companyHistory[0];
@@ -761,7 +782,7 @@
             document.getElementById('input-title').value = invoice.title || '';
             document.getElementById('input-number').value = invoice.number || '';
             document.getElementById('input-date').value = invoice.date || '';
-            document.getElementById('input-deadline').value = invoice.deadline || ''; // Load deadline
+            document.getElementById('input-deadline').value = invoice.deadline || '';
             document.getElementById('input-client').value = invoice.client || '';
             document.getElementById('input-client-dept').value = invoice.clientDept || '';
             document.getElementById('input-my-company').value = invoice.myCompany || '';
@@ -796,7 +817,6 @@
                 if(!isAutoSave) document.getElementById('input-title').value = title;
             }
 
-            // --- 履歴保存処理 (自動保存でも実行) ---
             const clientName = document.getElementById('input-client').value;
             if (clientName) {
                 saveClientHistory(clientName, document.getElementById('input-client-dept').value);
@@ -819,7 +839,7 @@
                 title: title,
                 number: document.getElementById('input-number').value,
                 date: document.getElementById('input-date').value,
-                deadline: document.getElementById('input-deadline').value, // Save deadline
+                deadline: document.getElementById('input-deadline').value,
                 client: clientName,
                 clientDept: document.getElementById('input-client-dept').value,
                 myCompany: document.getElementById('input-my-company').value,
@@ -929,8 +949,12 @@
                             <label class="text-xs text-gray-500 block">税率/税額</label>
                             <div class="flex flex-col gap-1">
                                 <div class="relative">
-                                    <input type="number" value="${item.taxRate}" onchange="updateItem(${index}, 'taxRate', this.value)" class="w-full border p-1 rounded text-xs text-right bg-white pr-5" placeholder="率">
-                                    <span class="absolute right-1 top-1 text-[10px] text-gray-400">%</span>
+                                    <select onchange="updateItem(${index}, 'taxRate', this.value)" class="w-full border p-1 rounded text-xs text-right bg-white pr-1 appearance-none">
+                                        <option value="10" ${item.taxRate === 10 ? 'selected' : ''}>10%</option>
+                                        <option value="8" ${item.taxRate === 8 ? 'selected' : ''}>8% (軽減)</option>
+                                        <option value="0" ${item.taxRate === 0 ? 'selected' : ''}>非課税</option>
+                                    </select>
+                                    <span class="absolute right-4 top-1.5 text-[10px] text-gray-400 pointer-events-none">▼</span>
                                 </div>
                                 <div class="relative">
                                     <input type="number" value="${item.taxAmount}" onchange="updateItem(${index}, 'taxAmount', this.value)" class="w-full border p-1 rounded text-xs text-right bg-white text-indigo-700 font-medium pr-5" placeholder="額">
@@ -991,7 +1015,7 @@
             // Set Deadline
             const deadline = document.getElementById('input-deadline').value;
             const previewDeadline = document.getElementById('preview-deadline');
-            const previewDeadlineContainer = previewDeadline.previousElementSibling; // The label "お支払い期限"
+            const previewDeadlineContainer = previewDeadline.previousElementSibling; 
             
             if (deadline) {
                 previewDeadline.innerText = deadline;
@@ -1008,7 +1032,6 @@
             setText('preview-my-address', document.getElementById('input-my-address').value);
             setText('preview-my-tel', document.getElementById('input-my-tel').value);
             
-            // インボイス番号の表示制御
             const invoiceNum = document.getElementById('input-my-invoice-num').value;
             const previewInvoiceNum = document.getElementById('preview-my-invoice-num');
             if (showInvoiceNum && invoiceNum) {
@@ -1042,7 +1065,7 @@
                     <td class="p-2 text-center">¥${item.price.toLocaleString()}</td>
                     <td class="p-2 text-center">${item.qty}</td>
                     <td class="p-2 text-center">${item.unit}</td>
-                    <td class="p-2 text-center text-xs text-gray-500">${item.taxRate}%</td>
+                    <td class="p-2 text-center text-xs text-gray-500">${item.taxRate === 0 ? '非' : item.taxRate + '%'}</td>
                     <td class="p-2 text-right font-mono">¥${rowPrice.toLocaleString()}</td>
                 `;
                 tbody.appendChild(tr);
@@ -1053,7 +1076,8 @@
             breakdownContainer.innerHTML = '';
 
             Object.keys(taxBreakdown).sort((a, b) => b - a).forEach(rate => {
-                if (parseFloat(rate) === 0 && taxBreakdown[rate].tax === 0) return;
+                // 非課税でも金額があれば表示する場合はここを調整
+                if (parseFloat(rate) === 0) return; // 今回は0%の内訳は出さない
                 const data = taxBreakdown[rate];
                 totalTax += data.tax;
                 const div = document.createElement('div');
